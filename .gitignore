@@ -1,0 +1,6 @@
+*.o
+*.core
+*~
+linkedlist-lab
+readline-heap
+sort-strings
