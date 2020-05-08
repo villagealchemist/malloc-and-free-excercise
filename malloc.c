@@ -5,15 +5,32 @@
 
 #include "os-interface.h"
 
+
+
 struct memory_block
 {
    size_t size;
 
-   // TODO: add additional fields (next pointer for free list?)
+   struct memory_block *next;
 
-   // This field must appear last!
    char mem[];
 };
+
+struct list
+{
+   struct memory_block *head;
+};
+
+struct list freelist = {};
+
+
+void
+free_list_prepend(struct list *list, struct memory_block *n)
+{
+   n->next = list->head;
+   list->head = n;
+}
+
 
 // The amount of bytes before ->mem in a memory_block.
 //
@@ -33,14 +50,34 @@ void *malloc(size_t n)
    if (n > SIZE_MAX - BLOCK_HEADER_SIZE)
       return NULL;
 
-   // TODO: consult free list for available memory.
-
-   // TODO: if we have a free list node where ->size is much biger than n,
-   //       split into multiple nodes and insert the extra nodes into the
-   //       free list
-
-   // If free list check failed, ask OS for memory
-   //
+   size_t blockSize = n + BLOCK_HEADER_SIZE;
+   struct memory_block *cur = freelist.head;
+   struct memory_block *prev;
+   while (cur)
+   {
+      if (cur->size >= blockSize)
+      {
+         struct memory_block *next = cur->next;
+         size_t newSize = cur->size - n;
+         mem = cur;
+         mem->size = n;
+         if (cur == freelist.head)
+         {
+            cur = cur + blockSize;
+            freelist.head = cur;
+         }
+         else
+         {
+            cur = cur + blockSize;
+            prev->next = cur;
+         } 
+         cur->next = next;
+         cur->size = newSize;
+      }
+      prev = cur;
+      cur = cur->next;
+   }
+   
    if (!mem)
    {
       size_t size = BLOCK_HEADER_SIZE + n;
@@ -60,12 +97,54 @@ void free(void *p)
    //
    if (!p)
       return;
-
+   
    struct memory_block *mem = PTR_TO_BLOCK(p);
 
-   // TODO: insert into free list.
+   if(!freelist.head)
+   {
+      freelist.head = mem;
+   }
+   else
+   {
+      struct memory_block *cur = freelist.head;
+      struct memory_block *prev;
+      int added = 0;
 
-   // TODO: consider merging with other physically adjacent free list nodes
+      while (cur && added == 0)
+      {
+         size_t memTotal = mem->size + BLOCK_HEADER_SIZE;
+         size_t curTotal = cur->size + BLOCK_HEADER_SIZE;
+         if (mem - curTotal == cur) 
+         {
+            cur->size += memTotal;
+            added = 1;
+         }
+         else if (cur - memTotal == mem)
+         {   
+            if(cur == freelist.head)
+            {
+               freelist.head = mem;
+            }
+            else
+            {
+               prev->next = mem;
+            }
+            mem->size += curTotal;
+            mem->next = cur->next;
+            added = 1;
+         }
+         
+         prev = cur;
+         cur = cur->next;
+         
+      }
+
+      if(added == 0){
+         free_list_prepend(&freelist, mem);
+         added = 1;
+      }
+   }
+   
 
    // TODO (extra credit) - if there is a large amount of free memory, give
    // it back to the OS with os_return_memory().
