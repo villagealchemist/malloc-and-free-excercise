@@ -144,10 +144,6 @@ void free(void *p)
          added = 1;
       }
    }
-   
-
-   // TODO (extra credit) - if there is a large amount of free memory, give
-   // it back to the OS with os_return_memory().
 }
 
 void *realloc(void *p, size_t newsize)
@@ -165,11 +161,6 @@ void *realloc(void *p, size_t newsize)
    //
    if (mem->size >= newsize)
       return p;
-
-   // TODO (extra credit):
-   // Is there something in the free list physically adjacent to
-   // this block?  Maybe we could merge them and not have to move the
-   // buffer.
 
    // Allocate a new buffer
    //
